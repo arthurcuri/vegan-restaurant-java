@@ -1,13 +1,9 @@
 package com.advanced.comidinhasveganas.entities;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -20,64 +16,43 @@ public class Mesa {
 
   private Integer lugares;
 
-  private Boolean isOcupada = false;
-
-  @ManyToOne
-  @JoinColumn(name = "restaurante_id")
-  @JsonIgnore
-  private Restaurante restaurante;
+  private Boolean isOcupada;
 
   public Mesa() {
   }
 
-  public Mesa(Integer lugares) {
-    setLugares(lugares);
-  }
-
-  public Mesa(Integer lugares, Restaurante restaurante) {
-    setLugares(lugares);
-    setRestaurante(restaurante);
+  public Mesa(Long id, Integer lugares, Boolean isOcupada) {
+    this.id = id;
+    this.lugares = lugares;
+    this.isOcupada = isOcupada;
   }
 
   public Long getId() {
     return id;
   }
 
-  public Integer getLugares() {
-    return lugares;
+  public void setId(Long id) {
+    this.id = id;
   }
 
-  public Boolean getIsOcupada() {
-    return isOcupada;
+  public Integer getLugares() {
+    return lugares;
   }
 
   public void setLugares(Integer lugares) {
     this.lugares = lugares;
   }
 
+  public Boolean getIsOcupada() {
+    return isOcupada;
+  }
+
   public void setIsOcupada(Boolean isOcupada) {
     this.isOcupada = isOcupada;
-  }
-
-  public void ocupar() {
-    this.isOcupada = true;
-  }
-
-  public void desocupar() {
-    this.isOcupada = false;
-  }
-
-  public Restaurante getRestaurante() {
-    return restaurante;
-  }
-
-  public void setRestaurante(Restaurante restaurante) {
-    this.restaurante = restaurante;
   }
 
   @Override
   public String toString() {
     return "Mesa [id=" + id + ", lugares=" + lugares + ", isOcupada=" + isOcupada + "]";
   }
-
 }

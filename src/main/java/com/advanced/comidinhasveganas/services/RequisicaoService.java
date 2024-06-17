@@ -1,5 +1,6 @@
 package com.advanced.comidinhasveganas.services;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -7,84 +8,128 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.advanced.comidinhasveganas.entities.Cliente;
+import com.advanced.comidinhasveganas.entities.Mesa;
 import com.advanced.comidinhasveganas.entities.Requisicao;
-import com.advanced.comidinhasveganas.exceptions.ResourceNotFoundException;
 import com.advanced.comidinhasveganas.repositories.RequisicaoRepository;
 
 @Service
 public class RequisicaoService {
 
+  private static final Double SERVICE_TAX = 1.1;
+
   @Autowired
-  private RequisicaoRepository requisicaoRepository;
+  private RequisicaoRepository repository;
+
+  @Autowired
+  private MesaService mesaService;
 
   public List<Requisicao> findAll() {
-    return requisicaoRepository.findAll();
+    return repository.findAll();
   }
 
   public Optional<Requisicao> findById(Long id) {
-    return requisicaoRepository.findById(id);
-  }
-
-  public List<Requisicao> findByRestauranteId(Long id) {
-    return requisicaoRepository.findByRestauranteId(id);
+    return repository.findById(id);
   }
 
   @Transactional
   public Requisicao insert(Requisicao requisicao) {
-    return requisicaoRepository.save(requisicao);
+    return repository.save(requisicao);
   }
 
   @Transactional
-  public void deleteAll() {
-    requisicaoRepository.deleteAll();
-  }
-
-  @Transactional
-  public void deleteById(Long id) {
-    requisicaoRepository.deleteById(id);
+  public void delete(Long id) {
+    repository.deleteById(id);
   }
 
   @Transactional
   public Requisicao update(Long id, Requisicao requisicao) {
-    Requisicao entity = requisicaoRepository.findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException("Requisição não encontrada"));
+    Requisicao entity = repository.findById(id)
+        .orElseThrow(() -> new RuntimeException("Requisição não encontrada"));
     updateData(entity, requisicao);
-    return requisicaoRepository.save(entity);
+    return repository.save(entity);
   }
 
   private void updateData(Requisicao entity, Requisicao requisicao) {
-    if (requisicao.getCliente() != null) {
-      entity.setCliente(requisicao.getCliente());
-    }
-    if (requisicao.getQuantidadePessoas() != null) {
-      entity.setQuantidadePessoas(requisicao.getQuantidadePessoas());
-    }
-    if (requisicao.getMesa() != null) {
-      entity.setMesa(requisicao.getMesa());
-    }
-    if (requisicao.getIsAtendida() != null) {
-      entity.setIsAtendida(requisicao.getIsAtendida());
-    }
-    if (requisicao.getIsFinalizada() != null) {
-      entity.setIsFinalizada(requisicao.getIsFinalizada());
-    }
-    if (requisicao.getDataHoraInicio() != null) {
-      entity.setDataHoraInicio(requisicao.getDataHoraInicio());
-    }
-    if (requisicao.getDataHoraFim() != null) {
-      entity.setDataHoraFim(requisicao.getDataHoraFim());
-    }
-    if (requisicao.getTotalConta() != null) {
-      entity.setTotalConta(requisicao.getTotalConta());
-    }
-    if (requisicao.getTotalPorPessoa() != null) {
-      entity.setTotalPorPessoa(requisicao.getTotalPorPessoa());
-    }
-    if (requisicao.getRestaurante() != null) {
-      entity.setRestaurante(requisicao.getRestaurante());
-    }
-    if (requisicao.getPedido() != null) {
-      entity.setPedido(requisicao.getPedido());
-    }
+    entity.setIsAtendida(requisicao.getIsAtendida());
+    entity.setIsFinalizada(requisicao.getIsFinalizada());
+    entity.setMesa(requisicao.getMesa());
+    entity.setQuantidadePessoas(requisicao.getQuantidadePessoas());
+    entity.setCliente(requisicao.getCliente());
+    entity.setDataHoraInicio(requisicao.getDataHoraInicio());
+    entity.setDataHoraFim(requisicao.getDataHoraFim());
+    entity.setPedidos(requisicao.getPedidos());
+    entity.setTotalConta(requisicao.getTotalConta());
+    entity.setTotalPorPessoa(requisicao.getTotalPorPessoa());
+  }
+
+  public Optional<Requisicao> findRequisicaoByMesaId(Long mesaId) {
+    return repository.findAll().stream()
+        .filter(r -> r.getMesa().getId().equals(mesaId) && !r.getIsFinalizada())
+        .findFirst();
+  }
+
+  public Requisicao findRequisicaoByTelefoneCliente(String telefone) {
+    return repository.findAll().stream()
+        .filter(r -> r.getCliente().getTelefone().equals(telefone) && !r.getIsFinalizada())
+        .findFirst()
+        .orElse(null);
+  }
+
+  public Requisicao criarRequisicao(Cliente cliente, int quantidadePessoas) {
+    Requisicao requisicao = new Requisicao();
+    requisicao.setCliente(cliente);
+    requisicao.setQuantidadePessoas(quantidadePessoas);
+    requisicao.setDataHoraInicio(LocalDateTime.now());
+    return insert(requisicao);
+  }
+
+  public void atualizarFilaDeRequisicoes() {
+    findAll().stream()
+        .filter(req -> !req.getIsAtendida())
+        .forEach(req -> {
+          Mesa mesa = mesaService.findMesaDisponivel(req.getQuantidadePessoas())
+              .orElse(null);
+          if (mesa != null) {
+            atribuirMesaARequisicao(req, mesa);
+          }
+        });
+  }
+
+  private void atribuirMesaARequisicao(Requisicao req, Mesa mesa) {
+    mesa.setIsOcupada(true);
+    req.setMesa(mesa);
+    req.setIsAtendida(true);
+    req.setDataHoraInicio(LocalDateTime.now());
+    update(req.getId(), req);
+    mesaService.update(mesa.getId(), mesa);
+  }
+
+  @Transactional
+  public Requisicao encerrarConta(Long idMesa) {
+    Requisicao req = findRequisicaoByMesaId(idMesa)
+        .orElseThrow(() -> new RuntimeException("Requisição não encontrada para a mesa selecionada"));
+
+    double totalConta = req.getPedidos().stream()
+        .flatMap(pedido -> pedido.getItens().stream())
+        .mapToDouble(item -> item.getPreco() > 0 ? item.getQuantidade() * item.getPreco() * SERVICE_TAX : 0)
+        .sum();
+    double totalPorPessoa = totalConta / req.getQuantidadePessoas();
+
+    req.setTotalConta(totalConta);
+    req.setTotalPorPessoa(totalPorPessoa);
+    req.setIsFinalizada(true);
+    req.setDataHoraFim(LocalDateTime.now());
+    update(req.getId(), req);
+
+    Mesa mesa = req.getMesa();
+    mesa.setIsOcupada(false);
+    mesaService.update(mesa.getId(), mesa);
+    return req;
+  }
+
+  public boolean isAtendidaEnaoFinalizada(Long requisicaoId) {
+    Optional<Requisicao> requisicao = findById(requisicaoId);
+    return requisicao.isPresent() && requisicao.get().getIsAtendida() && !requisicao.get().getIsFinalizada();
   }
 }

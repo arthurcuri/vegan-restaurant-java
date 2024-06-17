@@ -10,66 +10,36 @@ import org.springframework.transaction.annotation.Transactional;
 import com.advanced.comidinhasveganas.entities.Pedido;
 import com.advanced.comidinhasveganas.entities.Requisicao;
 import com.advanced.comidinhasveganas.repositories.PedidoRepository;
+import com.advanced.comidinhasveganas.repositories.RequisicaoRepository;
 
 @Service
 public class PedidoService {
 
   @Autowired
-  private PedidoRepository pedidoRepository;
+  private PedidoRepository repository;
+
+  @Autowired
+  private RequisicaoRepository requisicaoRepository;
 
   public List<Pedido> findAll() {
-    return pedidoRepository.findAll();
+    return repository.findAll();
   }
 
   public Optional<Pedido> findById(Long id) {
-    return pedidoRepository.findById(id);
-  }
-
-  public List<Pedido> findByRequisicaoRestauranteId(Long restauranteId) {
-    return pedidoRepository.findByRequisicaoRestauranteId(restauranteId);
+    return repository.findById(id);
   }
 
   @Transactional
-  public Pedido insert(Pedido pedido) {
-    return pedidoRepository.save(pedido);
+  public Pedido insert(Pedido pedido, Long idRequisicao) {
+    Requisicao requisicao = requisicaoRepository.findById(idRequisicao)
+        .orElseThrow(() -> new RuntimeException("Requisição não encontrada"));
+    pedido.setRequisicao(requisicao);
+    repository.save(pedido);
+    return pedido;
   }
 
   @Transactional
-  public void deleteAll() {
-    pedidoRepository.deleteAll();
+  public void delete(Long id) {
+    repository.deleteById(id);
   }
-
-  @Transactional
-  public void deleteById(Long id) {
-    pedidoRepository.deleteById(id);
-  }
-
-  @Transactional
-  public void processarRequisicoes(List<Requisicao> requisicoes) {
-    requisicoes.forEach(r -> {
-      Pedido p = r.getPedido();
-      if (p != null) {
-        Optional.ofNullable(p.getId()).ifPresentOrElse(
-            id -> update(id, p),
-            () -> insert(p));
-      }
-    });
-  }
-
-  @Transactional
-  public Pedido update(Long id, Pedido pedido) {
-    Pedido entity = pedidoRepository.findById(id).get();
-    updateData(entity, pedido);
-    return pedidoRepository.save(entity);
-  }
-
-  private void updateData(Pedido entity, Pedido pedido) {
-    if (pedido.getItens() != null) {
-      entity.setItens(pedido.getItens());
-    }
-    if (pedido.getRequisicao() != null) {
-      entity.setRequisicao(pedido.getRequisicao());
-    }
-  }
-
 }

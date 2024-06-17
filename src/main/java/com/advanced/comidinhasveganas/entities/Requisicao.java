@@ -1,8 +1,10 @@
 package com.advanced.comidinhasveganas.entities;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -48,7 +50,7 @@ public class Requisicao {
 
   @ManyToOne
   @JoinColumn(name = "restaurante_id")
-  @JsonBackReference
+  @JsonIgnore
   private Restaurante restaurante;
 
   public Requisicao() {
@@ -152,14 +154,6 @@ public class Requisicao {
     this.pedido = pedido;
   }
 
-  // public void calcularTotalConta() {
-  // totalConta = mesa.getPreco() * quantidadePessoas;
-  // }
-
-  // public void calcularTotalPorPessoa() {
-  // totalPorPessoa = totalConta / quantidadePessoas;
-  // }
-
   public void iniciarRequisicao(Mesa mesa) {
     this.mesa = mesa;
     this.dataHoraInicio = LocalDateTime.now();
@@ -170,8 +164,31 @@ public class Requisicao {
   public void finalizarRequisicao() {
     this.dataHoraFim = LocalDateTime.now();
     this.isFinalizada = true;
-    this.totalConta = pedido.getTotal();
+    this.totalConta = calcularTotal() * restaurante.getTaxaServico();
     this.totalPorPessoa = totalConta / quantidadePessoas;
+  }
+
+  private Double calcularTotal() {
+    double total = 0.0;
+    List<Long> menuFechadoIds = pedido.getItens().stream()
+        .map(item -> item.getItemCardapio().getCardapio())
+        .filter(cardapio -> cardapio instanceof MenuFechado)
+        .map(Cardapio::getId)
+        .distinct()
+        .collect(Collectors.toList());
+
+    for (ItemPedido item : pedido.getItens()) {
+      if (item.getItemCardapio().getCardapio() instanceof MenuFechado) {
+        Long cardapioId = item.getItemCardapio().getCardapio().getId();
+        if (menuFechadoIds.contains(cardapioId)) {
+          total += ((MenuFechado) item.getItemCardapio().getCardapio()).getPrecoFixo();
+          menuFechadoIds.remove(cardapioId);
+        }
+      } else {
+        total += item.getSubTotal();
+      }
+    }
+    return total;
   }
 
   public void cancelarRequisicao() {

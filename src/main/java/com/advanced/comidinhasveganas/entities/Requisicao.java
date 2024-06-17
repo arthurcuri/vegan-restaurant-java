@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -41,6 +42,9 @@ public class Requisicao {
   private Double totalConta = 0.0;
 
   private Double totalPorPessoa = 0.0;
+
+  @OneToOne
+  private Pedido pedido;
 
   @ManyToOne
   @JoinColumn(name = "restaurante_id")
@@ -140,6 +144,14 @@ public class Requisicao {
     this.restaurante = restaurante;
   }
 
+  public Pedido getPedido() {
+    return pedido;
+  }
+
+  public void setPedido(Pedido pedido) {
+    this.pedido = pedido;
+  }
+
   // public void calcularTotalConta() {
   // totalConta = mesa.getPreco() * quantidadePessoas;
   // }
@@ -152,11 +164,14 @@ public class Requisicao {
     this.mesa = mesa;
     this.dataHoraInicio = LocalDateTime.now();
     this.isAtendida = true;
+    setPedido(new Pedido());
   }
 
   public void finalizarRequisicao() {
     this.dataHoraFim = LocalDateTime.now();
     this.isFinalizada = true;
+    this.totalConta = pedido.getTotal();
+    this.totalPorPessoa = totalConta / quantidadePessoas;
   }
 
   public void cancelarRequisicao() {

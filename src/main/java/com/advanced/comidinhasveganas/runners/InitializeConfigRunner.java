@@ -1,24 +1,18 @@
 package com.advanced.comidinhasveganas.runners;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import com.advanced.comidinhasveganas.entities.Cardapio;
-import com.advanced.comidinhasveganas.entities.Cliente;
-import com.advanced.comidinhasveganas.entities.ItemCardapio;
-import com.advanced.comidinhasveganas.entities.Mesa;
-import com.advanced.comidinhasveganas.entities.Requisicao;
-import com.advanced.comidinhasveganas.entities.Restaurante;
-import com.advanced.comidinhasveganas.services.CardapioService;
-import com.advanced.comidinhasveganas.services.ClienteService;
-import com.advanced.comidinhasveganas.services.ItemCardapioService;
-import com.advanced.comidinhasveganas.services.MesaService;
-import com.advanced.comidinhasveganas.services.RequisicaoService;
-import com.advanced.comidinhasveganas.services.RestauranteService;
+import com.advanced.comidinhasveganas.entities.*;
+import com.advanced.comidinhasveganas.exceptions.ResourceNotFoundException;
+import com.advanced.comidinhasveganas.services.*;
 
 @Component
 @Order(12)
@@ -42,101 +36,169 @@ public class InitializeConfigRunner implements CommandLineRunner {
   @Autowired
   private ItemCardapioService itemCardapioService;
 
+  @Autowired
+  private PedidoService pedidoService;
+
+  @Autowired
+  private ItemPedidoService itemPedidoService;
+
   @Override
   public void run(String... args) throws Exception {
+    Long restauranteId = 1L;
 
-    Restaurante restaurante = restauranteService.findAll().get(0);
+    Restaurante restaurante = carregarRestaurante(restauranteId);
 
-    List<Mesa> mesas = mesaService.findByRestauranteId(restaurante.getId());
-    restaurante.setMesas(mesas);
-    List<Cliente> clientes = clienteService.findByRestauranteId(restaurante.getId());
-    restaurante.setClientes(clientes);
-    List<Requisicao> requisicoes = requisicaoService.findByRestauranteId(restaurante.getId());
-    restaurante.setRequisicoes(requisicoes);
-    List<Cardapio> cardapios = cardapioService.findByRestauranteId(restaurante.getId());
-    cardapios.stream().forEach(c -> {
-      List<ItemCardapio> itens = itemCardapioService.findByCardapioId(c.getId());
-      c.setItens(itens);
-    });
-    restaurante.setCardapios(cardapios);
+    exibirDadosRestaurante(restaurante);
 
-    System.out.println("-------------------");
-    System.out.println(restaurante);
+    Cliente cliente = new Cliente("Maria", "888", restaurante);
+    restaurante.addCliente(cliente);
 
-    restaurante.getMesas().stream().forEach(m -> System.out.println(m));
-    System.out.println("-------------------");
-    restaurante.getClientes().stream().forEach(c -> System.out.println(c));
-    System.out.println("-------------------");
-    restaurante.getRequisicoes().stream().forEach(r -> System.out.println(r));
-    System.out.println("-------------------");
-    restaurante.getCardapios().stream().forEach(c -> System.out.println(c));
-    System.out.println("-------------------");
-    cardapios.get(0).getItens().stream().forEach(i -> System.out.println(i));
+    Requisicao r = new Requisicao(cliente, 4, restaurante);
+    restaurante.addRequisicao(r);
 
-    // List<Mesa> mesas = mesaService.findByRestauranteId(restaurante.getId());
-    // List<Cliente> clientes =
-    // clienteService.findByRestauranteId(restaurante.getId());
-    // List<Requisicao> requisicoes =
-    // requisicaoService.findByRestauranteId(restaurante.getId());
-    // List<Cardapio> cardapios =
-    // cardapioService.findByRestauranteId(restaurante.getId());
+    restaurante.atualizarRequisicoes();
 
-    // restaurante.setMesas(mesas);
-    // restaurante.setClientes(clientes);
-    // restaurante.setRequisicoes(requisicoes);
-    // restaurante.setCardapios(cardapios);
+    ItemPedido itemPedido = new ItemPedido(restaurante.getCardapios().get(0).getItens().get(0), 2, r.getPedido());
+    r.getPedido().addItem(itemPedido);
 
-    // Cliente c2 = restaurante.getClienteByTelefone("432");
-    // if (c2 == null) {
-    // c2 = new Cliente("Maria", "432", restaurante);
-    // clientes.add(c2);
-    // restaurante.addCliente(c2);
-    // }
-
-    // Cliente c3 = restaurante.getClienteByTelefone("3");
-    // if (c3 == null) {
-    // c3 = new Cliente("João", "3", restaurante);
-    // clientes.add(c3);
-    // restaurante.addCliente(c3);
-    // }
-
-    // Requisicao req = new Requisicao(c2, 4, restaurante);
-    // System.out.println(req);
-
-    // System.out.println("-------------------");
-
-    // Requisicao req2 = new Requisicao(c3, 2, restaurante);
-    // System.out.println(req2);
-
-    // restaurante.addRequisicao(req);
-    // restaurante.addRequisicao(req2);
-
-    // restaurante.atualizarRequisicoes();
-
-    // restaurante.finalizarRequisicao(req2);
-
-    // restaurante.getRequisicoes().stream().forEach(r -> System.out.println(r));
-
-    // clientes.stream().forEach(c ->
-    // Optional.ofNullable(c.getId()).ifPresentOrElse(
-    // id -> clienteService.update(id, c),
-    // () -> clienteService.insert(c)));
-
-    // mesas.stream().forEach(m -> Optional.ofNullable(m.getId()).ifPresentOrElse(
-    // id -> mesaService.update(id, m),
-    // () -> mesaService.insert(m)));
-
-    // requisicoes.stream().forEach(r ->
-    // Optional.ofNullable(r.getId()).ifPresentOrElse(
-    // id -> requisicaoService.update(id, r),
-    // () -> requisicaoService.insert(r)));
-
-    // cardapios.stream().forEach(c ->
-    // Optional.ofNullable(c.getId()).ifPresentOrElse(
-    // id -> cardapioService.update(id, c),
-    // () -> cardapioService.insert(c)));
-
-    // restauranteService.update(restaurante.getId(), restaurante);
+    System.out.println(r.getPedido());
+    System.out.println(r);
+    atualizarEPersistirEntidades(restaurante);
   }
 
+  private Restaurante carregarRestaurante(Long restauranteId) {
+    Restaurante restaurante = restauranteService.findById(restauranteId)
+        .orElseThrow(() -> new ResourceNotFoundException("Restaurante não encontrado"));
+
+    carregarEntidadesAssociadas(restaurante);
+    return restaurante;
+  }
+
+  private void carregarEntidadesAssociadas(Restaurante restaurante) {
+    List<Mesa> mesas = mesaService.findByRestauranteId(restaurante.getId());
+    restaurante.setMesas(mesas);
+
+    List<Cliente> clientes = clienteService.findByRestauranteId(restaurante.getId());
+    restaurante.setClientes(clientes);
+
+    List<Requisicao> requisicoes = requisicaoService.findByRestauranteId(restaurante.getId());
+    restaurante.setRequisicoes(requisicoes);
+
+    List<ItemCardapio> itensCardapio = itemCardapioService.findByCardapioRestauranteId(restaurante.getId());
+    List<Cardapio> cardapios = cardapioService.findByRestauranteId(restaurante.getId());
+    restaurante.setCardapios(cardapios);
+
+    List<Pedido> pedidos = pedidoService.findByRequisicaoRestauranteId(restaurante.getId());
+    List<ItemPedido> itensPedido = itemPedidoService.findByPedidoRequisicaoRestauranteId(restaurante.getId());
+
+    associarEntidades(requisicoes, pedidos, cardapios, itensCardapio, itensPedido);
+  }
+
+  private void associarEntidades(List<Requisicao> requisicoes, List<Pedido> pedidos,
+      List<Cardapio> cardapios, List<ItemCardapio> itensCardapio,
+      List<ItemPedido> itensPedido) {
+    requisicoes.forEach(r -> {
+      Pedido pedido = pedidos.stream()
+          .filter(p -> p.getRequisicao().getId().equals(r.getId()))
+          .findFirst()
+          .orElse(null);
+      r.setPedido(pedido);
+    });
+
+    cardapios.forEach(c -> {
+      List<ItemCardapio> itens = itensCardapio.stream()
+          .filter(i -> i.getCardapio().getId().equals(c.getId()))
+          .collect(Collectors.toList());
+      c.setItens(itens);
+    });
+
+    pedidos.forEach(p -> {
+      List<ItemPedido> itens = itensPedido.stream()
+          .filter(i -> i.getPedido().getId().equals(p.getId()))
+          .collect(Collectors.toList());
+      p.setItens(itens);
+    });
+  }
+
+  private void exibirDadosRestaurante(Restaurante restaurante) {
+    System.out.println("-------------------");
+    System.out.println(restaurante);
+    restaurante.getMesas().forEach(System.out::println);
+    System.out.println("-------------------");
+    restaurante.getClientes().forEach(System.out::println);
+    System.out.println("-------------------");
+    restaurante.getRequisicoes().forEach(System.out::println);
+    System.out.println("-------------------");
+    restaurante.getCardapios().forEach(cardapio -> {
+      System.out.println(cardapio.getNome());
+      cardapio.getItens().forEach(System.out::println);
+      System.out.println("-------------------");
+    });
+  }
+
+  private Requisicao criarEPersistirRequisicao(Restaurante restaurante, String nomeCliente, String telefoneCliente) {
+    Cliente cliente = restaurante.getClienteByTelefone(telefoneCliente);
+    if (cliente == null) {
+      cliente = new Cliente(nomeCliente, telefoneCliente, restaurante);
+      clienteService.insert(cliente);
+      restaurante.addCliente(cliente);
+    }
+
+    Requisicao req = new Requisicao(cliente, 4, restaurante);
+    requisicaoService.insert(req);
+    restaurante.addRequisicao(req);
+
+    return req;
+  }
+
+  private Pedido criarEPersistirPedido(Restaurante restaurante, Requisicao requisicao) {
+    Pedido pedido = new Pedido(requisicao);
+    pedido = pedidoService.insert(pedido);
+    requisicao.setPedido(pedido);
+    requisicaoService.update(requisicao.getId(), requisicao);
+
+    return pedido;
+  }
+
+  private void atualizarEPersistirEntidades(Restaurante restaurante) {
+    restaurante.getClientes().forEach(c -> Optional.ofNullable(c.getId()).ifPresentOrElse(
+        id -> clienteService.update(id, c),
+        () -> clienteService.insert(c)));
+
+    restaurante.getMesas().forEach(m -> Optional.ofNullable(m.getId()).ifPresentOrElse(
+        id -> mesaService.update(id, m),
+        () -> mesaService.insert(m)));
+
+    restaurante.getCardapios().forEach(c -> Optional.ofNullable(c.getId()).ifPresentOrElse(
+        id -> cardapioService.update(id, c),
+        () -> cardapioService.insert(c)));
+
+    restaurante.getRequisicoes().forEach(r -> {
+      Pedido p = r.getPedido();
+      if (p != null) {
+        Optional.ofNullable(p.getId()).ifPresentOrElse(
+            id -> pedidoService.update(id, p),
+            () -> pedidoService.insert(p));
+      }
+    });
+
+    restaurante.getRequisicoes().forEach(r -> {
+      Pedido p = r.getPedido();
+      if (p != null) {
+        p.getItens().forEach(i -> Optional.ofNullable(i.getId()).ifPresentOrElse(
+            id -> itemPedidoService.update(id, i),
+            () -> itemPedidoService.insert(i)));
+      }
+    });
+
+    restaurante.getCardapios().forEach(c -> c.getItens().forEach(i -> Optional.ofNullable(i.getId()).ifPresentOrElse(
+        id -> itemCardapioService.update(id, i),
+        () -> itemCardapioService.insert(i))));
+
+    restaurante.getRequisicoes().forEach(r -> Optional.ofNullable(r.getId()).ifPresentOrElse(
+        id -> requisicaoService.update(id, r),
+        () -> requisicaoService.insert(r)));
+
+    restauranteService.update(restaurante.getId(), restaurante);
+  }
 }

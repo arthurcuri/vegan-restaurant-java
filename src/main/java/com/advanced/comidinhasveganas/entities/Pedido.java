@@ -1,72 +1,84 @@
 package com.advanced.comidinhasveganas.entities;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
-import java.util.HashSet;
-import java.util.Set;
-
 @Entity
-@Table(name = "tb_pedido")
+@Table(name = "tb_pedidos")
 public class Pedido {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @ManyToOne
-  @JoinColumn(name = "requisicao_id")
-  private Requisicao requisicao;
+  @OneToMany
+  @JoinColumn(name = "pedido_id")
+  private List<ItemPedido> itens = new ArrayList<>();
 
-  @OneToMany(mappedBy = "id.pedido")
-  @JsonIgnore
-  private Set<PedidoItemCardapio> itens = new HashSet<>();
+  private String tipoPedido;
+
+  private double precoTotal;
 
   public Pedido() {
   }
 
-  public Pedido(Requisicao requisicao) {
-    this.requisicao = requisicao;
+  public Pedido(String tipoPedido) {
+    setTipoPedido(tipoPedido);
   }
 
   public Long getId() {
     return id;
   }
 
-  public void setId(Long id) {
-    this.id = id;
-  }
-
-  public Requisicao getRequisicao() {
-    return requisicao;
-  }
-
-  public void setRequisicao(Requisicao requisicao) {
-    this.requisicao = requisicao;
-  }
-
-  public Set<PedidoItemCardapio> getItens() {
+  public List<ItemPedido> getItens() {
     return itens;
   }
 
-  public void adicionarItem(PedidoItemCardapio item) {
+  public String getTipoPedido() {
+    return tipoPedido;
+  }
+
+  public void setTipoPedido(String tipoPedido) {
+    this.tipoPedido = tipoPedido;
+  }
+
+  public double getPrecoTotal() {
+    return precoTotal;
+  }
+
+  public void addItem(ItemPedido item) {
     itens.add(item);
   }
 
-  public Double getTotal() {
-    return itens.stream().mapToDouble(PedidoItemCardapio::getSubTotal).sum();
+  public void addItens(List<ItemPedido> itens) {
+    this.itens.addAll(itens);
+  }
+
+  public void setPrecoTotal() {
+    if (tipoPedido.equalsIgnoreCase("normal")) {
+      precoTotal = itens.stream().mapToDouble(ItemPedido::getSubTotal).sum();
+    } else if (tipoPedido.equalsIgnoreCase("fechado")) {
+      precoTotal = 32.0;
+    } else {
+      throw new IllegalArgumentException("Tipo de pedido desconhecido.");
+    }
   }
 
   @Override
   public String toString() {
-    return "Pedido [id=" + id + ", requisicao=" + requisicao + "]";
+    StringBuilder sb = new StringBuilder();
+    for (ItemPedido item : itens) {
+      sb.append(item.toString()).append("\n");
+    }
+    sb.append("Preço total: R$ ").append(getPrecoTotal());
+    return sb.toString();
   }
 }

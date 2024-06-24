@@ -25,23 +25,12 @@ public class ItemPedido {
 
   private Integer quantidade;
 
-  @ManyToOne
-  @JoinColumn(name = "pedido_id")
-  @JsonIgnore
-  private Pedido pedido;
-
   public ItemPedido() {
   }
 
   public ItemPedido(ItemCardapio itemCardapio, Integer quantidade) {
     this.itemCardapio = itemCardapio;
     this.quantidade = quantidade;
-  }
-
-  public ItemPedido(ItemCardapio itemCardapio, Integer quantidade, Pedido pedido) {
-    this.itemCardapio = itemCardapio;
-    this.quantidade = quantidade;
-    this.pedido = pedido;
   }
 
   public Long getId() {
@@ -64,16 +53,9 @@ public class ItemPedido {
     this.quantidade = quantidade;
   }
 
+  @JsonIgnore
   public Double getSubTotal() {
     return itemCardapio.getPreco() * quantidade;
-  }
-
-  public Pedido getPedido() {
-    return pedido;
-  }
-
-  public void setPedido(Pedido pedido) {
-    this.pedido = pedido;
   }
 
   @Override

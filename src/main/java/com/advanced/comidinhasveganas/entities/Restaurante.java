@@ -2,11 +2,18 @@ package com.advanced.comidinhasveganas.entities;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+import com.advanced.comidinhasveganas.dto.ItemPedidoDTO;
+import com.advanced.comidinhasveganas.exceptions.ResourceNotFoundException;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
@@ -24,17 +31,21 @@ public class Restaurante {
 
   private String endereco;
 
-  @OneToMany(mappedBy = "restaurante")
+  @OneToMany
+  @JoinColumn(name = "restaurante_id")
   private List<Mesa> mesas = new ArrayList<>();
 
-  @OneToMany(mappedBy = "restaurante")
+  @OneToMany
+  @JoinColumn(name = "restaurante_id")
   private List<Cliente> clientes = new ArrayList<>();
 
-  @OneToMany(mappedBy = "restaurante")
+  @OneToMany
+  @JoinColumn(name = "restaurante_id")
   private List<Requisicao> requisicoes = new ArrayList<>();
 
-  @OneToMany(mappedBy = "restaurante")
-  private List<Cardapio> cardapios = new ArrayList<>();
+  @OneToMany
+  @JoinColumn(name = "restaurante_id")
+  private List<ItemCardapio> itensCardapio = new ArrayList<>();
 
   public Restaurante() {
   }
@@ -92,12 +103,16 @@ public class Restaurante {
     return this.requisicoes = requisicoes;
   }
 
-  public List<Cardapio> getCardapios() {
-    return cardapios;
+  public List<ItemCardapio> getItensCardapio() {
+    return itensCardapio;
   }
 
-  public void setCardapios(List<Cardapio> cardapios) {
-    this.cardapios = cardapios;
+  public void addItemCardapio(ItemCardapio itemCardapio) {
+    itensCardapio.add(itemCardapio);
+  }
+
+  public void removeItemCardapio(ItemCardapio itemCardapio) {
+    itensCardapio.remove(itemCardapio);
   }
 
   public void addMesa(Mesa mesa) {
@@ -108,8 +123,8 @@ public class Restaurante {
     mesas.remove(mesa);
   }
 
-  public Cliente getClienteByTelefone(String telefone) {
-    return clientes.stream().filter(c -> c.getTelefone().equals(telefone)).findFirst().orElse(null);
+  public Optional<Cliente> getClienteByTelefone(String telefone) {
+    return clientes.stream().filter(c -> c.getTelefone().equals(telefone)).findFirst();
   }
 
   public void addCliente(Cliente cliente) {
@@ -128,43 +143,80 @@ public class Restaurante {
     requisicoes.remove(requisicao);
   }
 
-  public void addCardapio(Cardapio cardapio) {
-    cardapios.add(cardapio);
+  // Métodos para filtrar listas com base em predicados
+  private List<Requisicao> filtrarRequisicoes(Predicate<Requisicao> predicate) {
+    return requisicoes.stream().filter(predicate).collect(Collectors.toList());
   }
 
-  public void removeCardapio(Cardapio cardapio) {
-    cardapios.remove(cardapio);
-  }
-
+  // Métodos específicos para filtrar requisicoes e mesas
   public List<Requisicao> getRequisicoesNaoAtendidas() {
-    return requisicoes.stream().filter(r -> !r.getIsAtendida()).toList();
+    return filtrarRequisicoes(r -> !r.getIsAtendida());
+  }
+
+  public List<Requisicao> getRequisicoesAtendidas() {
+    return filtrarRequisicoes(Requisicao::getIsAtendida);
   }
 
   public List<Requisicao> getRequisicoesNaoFinalizadas() {
-    return requisicoes.stream().filter(r -> !r.getIsFinalizada()).toList();
+    return filtrarRequisicoes(r -> !r.getIsFinalizada());
+  }
+
+  public List<Requisicao> getRequisicoesFinalizadas() {
+    return filtrarRequisicoes(Requisicao::getIsFinalizada);
+  }
+
+  public List<Requisicao> getRequisicoesAtivas() {
+    return filtrarRequisicoes(r -> !r.getIsFinalizada() && r.getIsAtendida());
+  }
+
+  public Requisicao getRequisicaoPorId(Long id) {
+    return requisicoes.stream().filter(r -> r.getId().equals(id)).findFirst().orElse(null);
+  }
+
+  public Requisicao getRequisicaoPorMesaId(Long mesaId) {
+    return requisicoes.stream().filter(r -> r.getMesa().getId().equals(mesaId) && !r.getIsFinalizada()).findFirst()
+        .orElse(null);
+  }
+
+  private List<Mesa> filtrarMesas(Predicate<Mesa> predicate) {
+    return mesas.stream().filter(predicate).collect(Collectors.toList());
   }
 
   public List<Mesa> getMesasDisponiveis() {
-    return mesas.stream().filter(m -> !m.getIsOcupada()).toList();
+    return filtrarMesas(m -> !m.getIsOcupada());
   }
 
   public List<Mesa> getMesasOcupadas() {
-    return mesas.stream().filter(m -> m.getIsOcupada()).toList();
+    return filtrarMesas(Mesa::getIsOcupada);
   }
 
+  // Método para atualizar requisições
   public void atualizarRequisicoes() {
     getRequisicoesNaoAtendidas().forEach(req -> {
-      getMesasDisponiveis().stream().filter(m -> m.getLugares() >= req.getQuantidadePessoas()).findFirst()
-          .ifPresent(mesa -> {
-            req.iniciarRequisicao(mesa);
-            mesa.ocupar();
-          });
+      getMesasDisponiveis().stream()
+          .filter(m -> m.cabe(req.getQuantidadePessoas()))
+          .findFirst()
+          .ifPresent(mesa -> req.iniciarRequisicao(mesa));
     });
+  }
+
+  public List<ItemPedido> criarItensPedido(List<ItemPedidoDTO> itensDTO) {
+    return itensDTO.stream()
+        .map(itemDTO -> {
+          Long itemId = itemDTO.getItemId();
+          Integer quantidade = itemDTO.getQuantidade();
+
+          return getItensCardapio().stream()
+              .filter(item -> item.getId().equals(itemId))
+              .findFirst()
+              .map(item -> new ItemPedido(item, quantidade))
+              .orElseThrow(() -> new ResourceNotFoundException("Item de cardápio não encontrado"));
+        })
+        .collect(Collectors.toList());
   }
 
   public void finalizarRequisicao(Requisicao requisicao) {
     requisicao.finalizarRequisicao();
-    requisicao.getMesa().desocupar();
   }
 
   @Override
